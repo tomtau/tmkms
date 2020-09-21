@@ -21,9 +21,9 @@ use prost_amino::{encoding::encode_varint, Message};
 use signatory::{
     ed25519,
     encoding::Encode,
-    signature::{Signature, Signer, Verifier},
+    signature::{Signature, Signer},
 };
-use signatory_dalek::Ed25519Verifier;
+use ed25519_dalek::{PublicKey as Ed25519PublicKey, Verifier};
 use std::{
     cmp,
     convert::TryInto,
@@ -152,18 +152,18 @@ impl<IoHandler: Read + Write + Send + Sync> SecretConnection<IoHandler> {
             }
         };
 
-        let remote_pubkey = ed25519::PublicKey::from_bytes(&auth_sig_msg.key)
-            .ok_or_else(|| ErrorKind::CryptoError)?;
+        let remote_pubkey = Ed25519PublicKey::from_bytes(&auth_sig_msg.key)
+            .map_err(|_| ErrorKind::CryptoError)?;
         let remote_signature: &[u8] = &auth_sig_msg.sig;
         let remote_sig =
             ed25519::Signature::from_bytes(remote_signature).map_err(|_| ErrorKind::CryptoError)?;
 
         if v0_33_handshake {
-            Ed25519Verifier::from(&remote_pubkey)
+            &remote_pubkey
                 .verify(&sc_mac, &remote_sig)
                 .map_err(|_| ErrorKind::CryptoError)?;
         } else {
-            Ed25519Verifier::from(&remote_pubkey)
+            &remote_pubkey
                 .verify(&kdf.challenge, &remote_sig)
                 .map_err(|_| ErrorKind::CryptoError)?;
         }

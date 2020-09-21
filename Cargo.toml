@@ -32,16 +32,17 @@ serde = { version = "1", features = ["serde_derive"] }
 serde_json = "1"
 sha2 = "0.9"
 secp256k1 = { version = "0.17", optional = true }
-signatory = { version = "0.20", features = ["ecdsa", "ed25519", "encoding"] }
-signatory-dalek = "0.20"
-signatory-secp256k1 = { version = "0.20", optional = true }
-signatory-ledger-tm = { version = "0.20", optional = true }
-stdtx = { version = "0.2", optional = true }
+ed25519-dalek = "1"
+signatory = { version = "0.21", features = ["ecdsa", "ed25519", "encoding", "k256"] }
+signatory-secp256k1 = { version = "0.21", optional = true }
+signatory-ledger-tm = { version = "0.21", optional = true }
+signatory-sgx = { version = "0.21", git = "https://github.com/crypto-com/signatory.git", rev = "25f881abeb5620fe78dc8d091a3950721569fa0c", optional = true }
+# stdtx = { version = "0.2", optional = true }
 subtle = "2"
 subtle-encoding = { version = "0.5", features = ["bech32-preview"] }
 tempfile = "3"
-tendermint = { version = "0.15.0", features = ["secp256k1"] }
-tendermint-rpc = { version = "0.15.0", optional = true, features = ["client"] }
+tendermint = { version = "0.16.0", features = ["secp256k1"] }
+tendermint-rpc = { version = "0.16.0", optional = true, features = ["client"] }
 thiserror = "1"
 wait-timeout = "0.2"
 x25519-dalek = "1.1"
@@ -53,9 +54,10 @@ version = "0.5"
 features = ["testing"]
 
 [features]
+sgx = ["signatory-sgx"]
 ledgertm = ["signatory-ledger-tm"]
 softsign = ["secp256k1", "signatory-secp256k1"]
-tx-signer = ["abscissa_tokio", "hyper", "stdtx", "tendermint-rpc"]
+# tx-signer = ["abscissa_tokio", "hyper", "stdtx", "tendermint-rpc"]
 yubihsm-mock = ["yubihsm/mockhsm"]
 yubihsm-server = ["yubihsm/http-server", "rpassword"]
 
@@ -65,3 +67,9 @@ overflow-checks = true
 
 [package.metadata.docs.rs]
 all-features = true
+
+[patch.crates-io]
+signatory = { git = "https://github.com/crypto-com/signatory.git", rev = "25f881abeb5620fe78dc8d091a3950721569fa0c" }
+signatory-secp256k1 = { git = "https://github.com/crypto-com/signatory.git", rev = "25f881abeb5620fe78dc8d091a3950721569fa0c" }
+signatory-ledger-tm = { git = "https://github.com/crypto-com/signatory.git", rev = "25f881abeb5620fe78dc8d091a3950721569fa0c" }
+yubihsm = { git = "https://github.com/iqlusioninc/yubihsm.rs.git", rev = "8569abc65ce57897b1e2aa17be4d28e4704dbaf6" }

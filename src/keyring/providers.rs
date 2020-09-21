@@ -25,6 +25,10 @@ pub enum SigningProvider {
     /// Software signer (not intended for production use)
     #[cfg(feature = "softsign")]
     SoftSign,
+
+    /// SGX-based (`x86_64-fortanix-unknown-sgx`) provider
+    #[cfg(feature = "sgx")]
+    Sgx,
 }
 
 impl Display for SigningProvider {
@@ -38,6 +42,9 @@ impl Display for SigningProvider {
 
             #[cfg(feature = "softsign")]
             SigningProvider::SoftSign => write!(f, "softsign"),
+
+            #[cfg(feature = "sgx")]
+            SigningProvider::Sgx => write!(f, "sgx"),
         }
     }
 }

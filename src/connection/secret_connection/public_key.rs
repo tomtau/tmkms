@@ -56,6 +56,12 @@ impl From<ed25519::PublicKey> for PublicKey {
     }
 }
 
+impl From<ed25519_dalek::PublicKey> for PublicKey {
+    fn from(pk: ed25519_dalek::PublicKey) -> PublicKey {
+        PublicKey::Ed25519(ed25519::PublicKey::new(pk.as_bytes().to_owned()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::PublicKey;

@@ -5,8 +5,8 @@ use crate::{
     error::{Error, ErrorKind::*},
     prelude::*,
 };
-use signatory::{ed25519, public_key::PublicKeyed};
-use signatory_dalek::Ed25519Signer;
+use signatory::ed25519;
+use ed25519_dalek::SecretKey;
 use std::{net::TcpStream, time::Duration};
 use subtle::ConstantTimeEq;
 use tendermint::node;
@@ -23,18 +23,20 @@ pub fn open_secret_connection(
     timeout: Option<u16>,
     v0_33_handshake: bool,
 ) -> Result<SecretConnection<TcpStream>, Error> {
-    let signer = Ed25519Signer::from(secret_key);
-    let public_key = PublicKey::from(signer.public_key().map_err(|_| Error::from(InvalidKey))?);
-
-    info!("KMS node ID: {}", &public_key);
-
+    let secret = SecretKey::from_bytes(secret_key.as_secret_slice()).map_err(|_| InvalidKey)?;
+    let public_key = ed25519_dalek::PublicKey::from(&secret);
+    info!("KMS node ID: {}", &tendermint::node::Id::from(public_key));
+    let signer = ed25519_dalek::Keypair {
+        secret,
+        public: public_key.clone(),
+    };
     let socket = TcpStream::connect(format!("{}:{}", host, port))?;
 
     let timeout = Duration::from_secs(timeout.unwrap_or(DEFAULT_TIMEOUT).into());
     socket.set_read_timeout(Some(timeout))?;
     socket.set_write_timeout(Some(timeout))?;
 
-    let connection = SecretConnection::new(socket, &public_key, &signer, v0_33_handshake)?;
+    let connection = SecretConnection::new(socket, &PublicKey::from(public_key), &signer, v0_33_handshake)?;
     let actual_peer_id = connection.remote_pubkey().peer_id();
 
     // TODO(tarcieri): move this into `SecretConnection::new`
