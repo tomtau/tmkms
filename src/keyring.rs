@@ -174,5 +174,8 @@ pub fn load_config(registry: &mut chain::Registry, config: &ProviderConfig) -> R
     #[cfg(feature = "ledgertm")]
     providers::ledgertm::init(registry, &config.ledgertm)?;
 
+    #[cfg(feature = "sgx")]
+    providers::sgx::init(registry, &config.sgx)?;
+
     Ok(())
 }

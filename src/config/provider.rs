@@ -2,6 +2,8 @@
 
 #[cfg(feature = "ledgertm")]
 pub mod ledgertm;
+#[cfg(feature = "sgx")]
+pub mod sgx;
 #[cfg(feature = "softsign")]
 pub mod softsign;
 #[cfg(feature = "yubihsm")]
@@ -9,6 +11,8 @@ pub mod yubihsm;
 
 #[cfg(feature = "ledgertm")]
 use self::ledgertm::LedgerTendermintConfig;
+#[cfg(feature = "sgx")]
+use self::sgx::SgxConfig;
 #[cfg(feature = "softsign")]
 use self::softsign::SoftsignConfig;
 #[cfg(feature = "yubihsm")]
@@ -35,6 +39,11 @@ pub struct ProviderConfig {
     #[cfg(feature = "ledgertm")]
     #[serde(default)]
     pub ledgertm: Vec<LedgerTendermintConfig>,
+
+    /// Map of SGX labels to their configurations
+    #[cfg(feature = "sgx")]
+    #[serde(default)]
+    pub sgx: Vec<SgxConfig>,
 }
 
 /// Types of cryptographic keys

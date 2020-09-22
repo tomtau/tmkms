@@ -9,6 +9,9 @@ pub mod softsign;
 #[cfg(feature = "yubihsm")]
 pub mod yubihsm;
 
+#[cfg(feature = "sgx")]
+pub mod sgx;
+
 use std::fmt::{self, Display};
 
 /// Enumeration of signing key providers

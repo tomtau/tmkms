@@ -5,8 +5,8 @@ use crate::{
     error::{Error, ErrorKind::*},
     prelude::*,
 };
-use signatory::ed25519;
 use ed25519_dalek::SecretKey;
+use signatory::ed25519;
 use std::{net::TcpStream, time::Duration};
 use subtle::ConstantTimeEq;
 use tendermint::node;
@@ -36,7 +36,12 @@ pub fn open_secret_connection(
     socket.set_read_timeout(Some(timeout))?;
     socket.set_write_timeout(Some(timeout))?;
 
-    let connection = SecretConnection::new(socket, &PublicKey::from(public_key), &signer, v0_33_handshake)?;
+    let connection = SecretConnection::new(
+        socket,
+        &PublicKey::from(public_key),
+        &signer,
+        v0_33_handshake,
+    )?;
     let actual_peer_id = connection.remote_pubkey().peer_id();
 
     // TODO(tarcieri): move this into `SecretConnection::new`

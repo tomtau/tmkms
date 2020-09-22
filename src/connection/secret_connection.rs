@@ -16,6 +16,7 @@ use chacha20poly1305::{
     aead::{generic_array::GenericArray, AeadInPlace, NewAead},
     ChaCha20Poly1305,
 };
+use ed25519_dalek::{PublicKey as Ed25519PublicKey, Verifier};
 use merlin::Transcript;
 use prost_amino::{encoding::encode_varint, Message};
 use signatory::{
@@ -23,7 +24,6 @@ use signatory::{
     encoding::Encode,
     signature::{Signature, Signer},
 };
-use ed25519_dalek::{PublicKey as Ed25519PublicKey, Verifier};
 use std::{
     cmp,
     convert::TryInto,
@@ -152,8 +152,8 @@ impl<IoHandler: Read + Write + Send + Sync> SecretConnection<IoHandler> {
             }
         };
 
-        let remote_pubkey = Ed25519PublicKey::from_bytes(&auth_sig_msg.key)
-            .map_err(|_| ErrorKind::CryptoError)?;
+        let remote_pubkey =
+            Ed25519PublicKey::from_bytes(&auth_sig_msg.key).map_err(|_| ErrorKind::CryptoError)?;
         let remote_signature: &[u8] = &auth_sig_msg.sig;
         let remote_sig =
             ed25519::Signature::from_bytes(remote_signature).map_err(|_| ErrorKind::CryptoError)?;
