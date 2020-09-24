@@ -55,7 +55,11 @@ impl Runnable for ImportCommand {
                 match private_key {
                     PrivateKey::Ed25519(pk) => {
                         // TODO(tarcieri): upgrade Signatory version
-                        ed25519::Seed::from_bytes(pk.to_seed().as_secret_slice()).unwrap()
+                        ed25519::Seed::from_bytes(pk.secret.to_bytes()).unwrap()
+                    }
+                    _ => {
+                        status_err!("invalid key type");
+                        process::exit(1);
                     }
                 }
             }

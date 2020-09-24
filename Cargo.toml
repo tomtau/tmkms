@@ -73,4 +73,4 @@ all-features = true
 signatory = { git = "https://github.com/crypto-com/signatory.git", rev = "25f881abeb5620fe78dc8d091a3950721569fa0c" }
 signatory-secp256k1 = { git = "https://github.com/crypto-com/signatory.git", rev = "25f881abeb5620fe78dc8d091a3950721569fa0c" }
 signatory-ledger-tm = { git = "https://github.com/crypto-com/signatory.git", rev = "25f881abeb5620fe78dc8d091a3950721569fa0c" }
-yubihsm = { git = "https://github.com/iqlusioninc/yubihsm.rs.git", rev = "8569abc65ce57897b1e2aa17be4d28e4704dbaf6" }
+yubihsm = { git = "https://github.com/iqlusioninc/yubihsm.rs.git", rev = "01c60e37a2c420e351566842be29c0cc6ae91b51" }

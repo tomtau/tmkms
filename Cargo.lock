@@ -358,6 +358,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8dae9c4b8fedcae85592ba623c4fd08cfdab3e3b72d6df780c6ead964a69bfff"
 
 [[package]]
+name = "ccm"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbba800a6a55058ecb75c7a42e3d16a715a2b1f1afa9acf07365d6ab30d62ce1"
+dependencies = [
+ "aead",
+ "block-cipher",
+ "subtle",
+]
+
+[[package]]
 name = "cfg-if"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1243,13 +1254,14 @@ dependencies = [
 
 [[package]]
 name = "k256"
-version = "0.5.0-rc"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab3549bdc36ca2795011df72b53450a02c9ed516a769ff3ddb03d3c5c26a7bf5"
+checksum = "6e163af5c3d73a042455736aab29d9e98c7592f59ea5d3faf4a715fc4b8d36c2"
 dependencies = [
  "cfg-if",
  "ecdsa 0.8.0",
  "elliptic-curve 0.6.0",
+ "sha2",
  "sha3",
 ]
 
@@ -1591,9 +1603,9 @@ dependencies = [
 
 [[package]]
 name = "p256"
-version = "0.5.0-rc"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf3ef85ee79d6c6293cc1a1bbc2a4e19f30408469271fe7961e4cd4e9406b60"
+checksum = "1909a5a44a469f7d21c8dec2c634721ba15379b6cad80040d16abfaa8609b37c"
 dependencies = [
  "ecdsa 0.8.0",
  "elliptic-curve 0.6.0",
@@ -1602,9 +1614,9 @@ dependencies = [
 
 [[package]]
 name = "p384"
-version = "0.4.0-rc"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "699dc1f69649a189e3e22578f2c568c2599de2fcff300fd7d773884e952a45b4"
+checksum = "51ce2b1182d022bfbe2af57aeca44fe7832356dd2d998e98e423cd9b94fae4f7"
 dependencies = [
  "ecdsa 0.8.0",
  "elliptic-curve 0.6.0",
@@ -2858,25 +2870,27 @@ dependencies = [
 [[package]]
 name = "yubihsm"
 version = "0.34.0"
-source = "git+https://github.com/iqlusioninc/yubihsm.rs.git?rev=8569abc65ce57897b1e2aa17be4d28e4704dbaf6#8569abc65ce57897b1e2aa17be4d28e4704dbaf6"
+source = "git+https://github.com/iqlusioninc/yubihsm.rs.git?rev=01c60e37a2c420e351566842be29c0cc6ae91b51#01c60e37a2c420e351566842be29c0cc6ae91b51"
 dependencies = [
  "aes",
  "anomaly",
  "bitflags",
  "block-modes",
+ "ccm",
  "chrono",
  "cmac",
+ "digest 0.9.0",
  "ecdsa 0.8.0",
  "ed25519",
  "ed25519-dalek",
- "getrandom",
  "harp",
  "hmac 0.9.0",
- "k256 0.5.0-rc",
+ "k256 0.5.2",
  "log",
  "p256",
  "p384",
  "pbkdf2",
+ "rand_core",
  "rusb",
  "serde",
  "serde_json",

@@ -12,8 +12,8 @@ use crate::{
     keyring::{self, SecretKeyEncoding, SigningProvider},
     prelude::*,
 };
+use ed25519_dalek::{Keypair, PublicKey, SecretKey};
 use signatory::{ed25519, encoding::Decode, public_key::PublicKeyed};
-use signatory_dalek::Ed25519Signer;
 use signatory_secp256k1::EcdsaSigner;
 use std::{fs, process};
 use tendermint::{config::PrivValidatorKey, PrivateKey, TendermintKey};
@@ -62,7 +62,7 @@ pub fn init(chain_registry: &mut chain::Registry, configs: &[SoftsignConfig]) ->
                 loaded_consensus_key = true;
 
                 let signer = load_ed25519_key(&config)?;
-                let public_key = signer.public_key().map_err(|_| Error::from(InvalidKey))?;
+                let public_key = signer.public;
 
                 let consensus_pubkey = TendermintKey::ConsensusKey(public_key.into());
 
@@ -83,7 +83,7 @@ pub fn init(chain_registry: &mut chain::Registry, configs: &[SoftsignConfig]) ->
 }
 
 /// Load an Ed25519 key according to the provided configuration
-fn load_ed25519_key(config: &SoftsignConfig) -> Result<Ed25519Signer, Error> {
+fn load_ed25519_key(config: &SoftsignConfig) -> Result<Keypair, Error> {
     let key_format = config.key_format.as_ref().cloned().unwrap_or_default();
 
     match key_format {
@@ -109,8 +109,16 @@ fn load_ed25519_key(config: &SoftsignConfig) -> Result<Ed25519Signer, Error> {
                     e
                 )
             })?;
-
-            Ok(Ed25519Signer::from(&seed))
+            let secret = SecretKey::from_bytes(&seed.as_secret_slice()).map_err(|e| {
+                format_err!(
+                    ConfigError,
+                    "couldn't parse key from `{}`: {}",
+                    &config.path.as_ref().display(),
+                    e
+                )
+            })?;
+            let public = PublicKey::from(&secret);
+            Ok(Keypair { secret, public })
         }
         KeyFormat::Json => {
             let private_key = PrivValidatorKey::load_json_file(&config.path)
@@ -121,7 +129,11 @@ fn load_ed25519_key(config: &SoftsignConfig) -> Result<Ed25519Signer, Error> {
                 .priv_key;
 
             match private_key {
-                PrivateKey::Ed25519(pk) => Ok(pk.to_signer()),
+                PrivateKey::Ed25519(pk) => Ok(pk),
+                _ => {
+                    status_err!("invalid key type");
+                    process::exit(1);
+                }
             }
         }
     }
