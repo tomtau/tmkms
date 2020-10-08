@@ -11,6 +11,7 @@ use crate::{
     error::{Error, ErrorKind::*},
     prelude::*,
 };
+use std::convert::TryFrom;
 use std::{
     fs,
     io::{self, prelude::*},
@@ -165,7 +166,8 @@ impl State {
 
         // TODO(tarcieri): correct upstream `tendermint-rs` default height to 0
         // Set the initial block height to 0 to indicate we've never signed a block
-        consensus_state.height = 0.into();
+        consensus_state.height =
+            tendermint::block::Height::try_from(0u64).expect("zero height / initial state");
 
         let initial_state = Self {
             consensus_state,

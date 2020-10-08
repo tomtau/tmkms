@@ -8,12 +8,11 @@ use crate::{
     prelude::*,
     rpc::{Request, Response, TendermintRequest},
 };
-use prost_amino::Message;
 use std::{fmt::Debug, os::unix::net::UnixStream, time::Instant};
-use tendermint::{
-    amino_types::{PingResponse, PubKeyRequest, PubKeyResponse, RemoteError, SignedMsgType},
-    consensus, net,
-};
+use tendermint_proto::privval::{PingResponse, RemoteSignerError as RemoteError};
+
+use tendermint::net;
+use tendermint::public_key::{PubKeyRequest, PublicKey};
 
 /// Encrypted session with a validator node
 pub struct Session {
@@ -117,19 +116,12 @@ impl Session {
             Request::ShowPublicKey(ref req) => self.get_public_key(req)?,
         };
 
-        debug!(
-            "[{}@{}] sending response: {:?}",
-            &self.config.chain_id, &self.config.addr, &response
-        );
+        // debug!(
+        //     "[{}@{}] sending response: {:?}",
+        //     &self.config.chain_id, &self.config.addr, &response
+        // );
 
-        let mut buf = vec![];
-
-        match response {
-            Response::SignedProposal(sp) => sp.encode(&mut buf)?,
-            Response::SignedVote(sv) => sv.encode(&mut buf)?,
-            Response::Ping(ping) => ping.encode(&mut buf)?,
-            Response::PublicKey(pk) => pk.encode(&mut buf)?,
-        }
+        let buf = response.encode_msg_wrapped()?;
 
         self.connection.write_all(&buf)?;
 
@@ -141,7 +133,6 @@ impl Session {
     where
         R: TendermintRequest + Debug,
     {
-        request.validate()?;
         self.check_max_height(&mut request)?;
 
         debug!(
@@ -167,8 +158,7 @@ impl Session {
             return Ok(request.build_response(Some(remote_err)));
         }
 
-        let mut to_sign = vec![];
-        request.sign_bytes(self.config.chain_id, &mut to_sign)?;
+        let to_sign = request.to_sign_bytes();
 
         debug!(
             "[{}@{}] performing signature",
@@ -181,7 +171,7 @@ impl Session {
         let signature = chain.keyring.sign_ed25519(None, &to_sign)?;
 
         self.log_signing_request(&request, started_at).unwrap();
-        request.set_signature(&signature);
+        request.set_signature(signature);
 
         Ok(request.build_response(None))
     }
@@ -193,15 +183,14 @@ impl Session {
         R: TendermintRequest + Debug,
     {
         if let Some(max_height) = self.config.max_height {
-            if let Some(height) = request.height() {
-                if height > max_height.value() as i64 {
-                    fail!(
-                        ExceedMaxHeight,
-                        "attempted to sign at height {} which is greater than {}",
-                        height,
-                        max_height,
-                    );
-                }
+            let height = request.height();
+            if height > max_height {
+                fail!(
+                    ExceedMaxHeight,
+                    "attempted to sign at height {} which is greater than {}",
+                    height,
+                    max_height,
+                );
             }
         }
 
@@ -218,7 +207,7 @@ impl Session {
     where
         R: TendermintRequest + Debug,
     {
-        let (msg_type, request_state) = parse_request(request)?;
+        let (msg_type, request_state) = request.consensus_state();
 
         debug!(
             "[{}@{}] acquiring read-write exclusive lock on chain",
@@ -248,7 +237,13 @@ impl Session {
                     request_state.block_id_prefix()
                 );
 
-                let remote_err = RemoteError::double_sign(request_state.height.into());
+                let remote_err = RemoteError {
+                    code: 2,
+                    description: format!(
+                        "double signing requested at height: {}",
+                        request_state.height
+                    ),
+                };
                 Ok(Some(remote_err))
             }
             Err(e) => Err(e.into()),
@@ -275,7 +270,7 @@ impl Session {
                 panic!("chain '{}' missing from registry!", &self.config.chain_id);
             });
 
-        Ok(Response::PublicKey(PubKeyResponse::from(
+        Ok(Response::PublicKey(PublicKey::from(
             *chain.keyring.default_ed25519_pubkey()?,
         )))
     }
@@ -285,7 +280,7 @@ impl Session {
     where
         R: TendermintRequest + Debug,
     {
-        let (msg_type, request_state) = parse_request(request)?;
+        let (msg_type, request_state) = request.consensus_state();
 
         info!(
             "[{}@{}] signed {:?}:{} at h/r/s {} ({} ms)",
@@ -299,27 +294,4 @@ impl Session {
 
         Ok(())
     }
-}
-
-/// Parse the consensus state from an incoming request
-// TODO(tarcieri): fix the upstream Amino parser to do this correctly for us
-fn parse_request<R>(request: &R) -> Result<(SignedMsgType, consensus::State), Error>
-where
-    R: TendermintRequest + Debug,
-{
-    let msg_type = request
-        .msg_type()
-        .ok_or_else(|| format_err!(ProtocolError, "no message type for this request"))?;
-
-    let mut consensus_state = request
-        .consensus_state()
-        .ok_or_else(|| format_err!(ProtocolError, "no consensus state in request"))?;
-
-    consensus_state.step = match msg_type {
-        SignedMsgType::Proposal => 0,
-        SignedMsgType::PreVote => 1,
-        SignedMsgType::PreCommit => 2,
-    };
-
-    Ok((msg_type, consensus_state))
 }

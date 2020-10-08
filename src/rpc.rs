@@ -3,15 +3,16 @@
 // TODO: docs for everything
 #![allow(missing_docs)]
 
-use bytes::Bytes;
-use once_cell::sync::Lazy;
-use prost_amino::{
-    encoding::{decode_varint, encoded_len_varint},
-    Message,
-};
-use sha2::{Digest, Sha256};
+use prost::Message;
+use std::convert::TryFrom;
 use std::io::{self, Error, ErrorKind, Read};
-use tendermint::amino_types::*;
+use tendermint::proposal::{SignProposalRequest, SignedProposalResponse};
+use tendermint::public_key::{PubKeyRequest, PublicKey};
+use tendermint::vote::{SignVoteRequest, SignedVoteResponse};
+use tendermint_proto::{
+    privval::{message::Sum, Message as PrivMessage, PingRequest, PingResponse, RemoteSignerError},
+    types::SignedMsgType,
+};
 
 /// Maximum size of an RPC message
 pub const MAX_MSG_LEN: usize = 1024;
@@ -29,41 +30,55 @@ pub enum Request {
 }
 
 /// Responses from the KMS
-#[derive(Debug)]
 pub enum Response {
     /// Signature response
     SignedVote(SignedVoteResponse),
     SignedProposal(SignedProposalResponse),
     Ping(PingResponse),
-    PublicKey(PubKeyResponse),
+    PublicKey(PublicKey),
 }
 
-pub trait TendermintRequest: SignableMsg {
-    fn build_response(self, error: Option<RemoteError>) -> Response;
+impl Response {
+    pub fn encode_msg_wrapped(self) -> Result<Vec<u8>, Error> {
+        let mut buf = vec![];
+        match self {
+            Response::SignedProposal(sp) => {
+                let msg = PrivMessage {
+                    sum: Some(Sum::SignedProposalResponse(sp.into())),
+                };
+                msg.encode(&mut buf)
+            }
+            Response::SignedVote(sv) => {
+                let msg = PrivMessage {
+                    sum: Some(Sum::SignedVoteResponse(sv.into())),
+                };
+                msg.encode(&mut buf)
+            }
+            Response::Ping(ping) => {
+                let msg = PrivMessage {
+                    sum: Some(Sum::PingResponse(ping)),
+                };
+                msg.encode(&mut buf)
+            }
+            Response::PublicKey(pk) => {
+                let msg = PrivMessage {
+                    sum: Some(Sum::PubKeyResponse(pk.into())),
+                };
+                msg.encode(&mut buf)
+            }
+        }
+        .map_err(|error| Error::new(ErrorKind::Other, error))?;
+        Ok(buf)
+    }
 }
 
-fn compute_prefix(name: &str) -> Vec<u8> {
-    let mut sh = Sha256::default();
-    sh.update(name.as_bytes());
-    let output = sh.finalize();
-
-    output
-        .iter()
-        .filter(|&x| *x != 0x00)
-        .skip(3)
-        .filter(|&x| *x != 0x00)
-        .cloned()
-        .take(4)
-        .collect()
+pub trait TendermintRequest {
+    fn consensus_state(&self) -> (SignedMsgType, tendermint::consensus::State);
+    fn height(&self) -> tendermint::block::Height;
+    fn to_sign_bytes(&self) -> Vec<u8>;
+    fn build_response(self, error: Option<RemoteSignerError>) -> Response;
+    fn set_signature(&mut self, signature: ed25519_dalek::Signature);
 }
-
-// pre-compute registered types prefix (this is probably sth. our amino library should
-// provide instead)
-
-static VOTE_PREFIX: Lazy<Vec<u8>> = Lazy::new(|| compute_prefix(VOTE_AMINO_NAME));
-static PROPOSAL_PREFIX: Lazy<Vec<u8>> = Lazy::new(|| compute_prefix(PROPOSAL_AMINO_NAME));
-static PUBKEY_PREFIX: Lazy<Vec<u8>> = Lazy::new(|| compute_prefix(PUBKEY_AMINO_NAME));
-static PING_PREFIX: Lazy<Vec<u8>> = Lazy::new(|| compute_prefix(PING_AMINO_NAME));
 
 impl Request {
     /// Read a request from the given readable
@@ -77,50 +92,62 @@ impl Request {
                 "Did not read enough bytes to continue.",
             ));
         }
-
-        let mut buf_amino: Bytes = Bytes::from(buf.clone());
-        let len = decode_varint(&mut buf_amino).unwrap();
-        if len > MAX_MSG_LEN as u64 {
-            return Err(Error::new(ErrorKind::InvalidData, "RPC message too large."));
-        }
-        let amino_pre = buf_amino.slice(0..4);
-
-        let buf: Bytes = Bytes::from(buf);
-
-        let total_len = encoded_len_varint(len).checked_add(len as usize).unwrap();
-        let rem = buf.as_ref()[..total_len].to_vec();
-        match amino_pre {
-            ref vt if *vt == *VOTE_PREFIX => {
-                Ok(Request::SignVote(SignVoteRequest::decode(rem.as_ref())?))
+        let req = PrivMessage::decode(&buf[0..bytes_read])?;
+        let err = Error::new(ErrorKind::InvalidData, "Invalid request.");
+        match req.sum {
+            Some(Sum::PubKeyRequest(pkr)) => {
+                let pkr = PubKeyRequest::try_from(pkr).map_err(|_| err)?;
+                Ok(Request::ShowPublicKey(pkr))
             }
-            ref pr if *pr == *PROPOSAL_PREFIX => Ok(Request::SignProposal(
-                SignProposalRequest::decode(rem.as_ref())?,
-            )),
-            ref pubk if *pubk == *PUBKEY_PREFIX => {
-                Ok(Request::ShowPublicKey(PubKeyRequest::decode(rem.as_ref())?))
+            Some(Sum::PingRequest(pr)) => Ok(Request::ReplyPing(pr)),
+            Some(Sum::SignVoteRequest(svr)) => {
+                let svr = SignVoteRequest::try_from(svr).map_err(|_| err)?;
+                Ok(Request::SignVote(svr))
             }
-            ref ping if *ping == *PING_PREFIX => {
-                Ok(Request::ReplyPing(PingRequest::decode(rem.as_ref())?))
+            Some(Sum::SignProposalRequest(spr)) => {
+                let spr = SignProposalRequest::try_from(spr).map_err(|_| err)?;
+                Ok(Request::SignProposal(spr))
             }
-            _ => Err(Error::new(
-                ErrorKind::InvalidData,
-                "Received unknown RPC message.",
-            )),
+            _ => Err(err),
         }
     }
 }
 
 impl TendermintRequest for SignVoteRequest {
-    fn build_response(self, error: Option<RemoteError>) -> Response {
+    fn consensus_state(&self) -> (SignedMsgType, tendermint::consensus::State) {
+        let mut state = self.vote.consensus_state();
+        let smtype = if self.vote.is_precommit() {
+            state.step = 2;
+            SignedMsgType::Precommit
+        } else {
+            state.step = 1;
+            SignedMsgType::Prevote
+        };
+        (smtype, state)
+    }
+
+    fn height(&self) -> tendermint::block::Height {
+        self.vote.height
+    }
+
+    fn set_signature(&mut self, signature: ed25519_dalek::Signature) {
+        self.vote.signature = tendermint::Signature::Ed25519(signature);
+    }
+
+    fn to_sign_bytes(&self) -> Vec<u8> {
+        self.to_signable_vec().expect("todo")
+    }
+
+    fn build_response(self, error: Option<RemoteSignerError>) -> Response {
         let response = if let Some(e) = error {
             SignedVoteResponse {
                 vote: None,
-                err: Some(e),
+                error: Some(e),
             }
         } else {
             SignedVoteResponse {
-                vote: self.vote,
-                err: None,
+                vote: Some(self.vote),
+                error: None,
             }
         };
 
@@ -129,16 +156,34 @@ impl TendermintRequest for SignVoteRequest {
 }
 
 impl TendermintRequest for SignProposalRequest {
-    fn build_response(self, error: Option<RemoteError>) -> Response {
+    fn consensus_state(&self) -> (SignedMsgType, tendermint::consensus::State) {
+        let mut state = self.proposal.consensus_state();
+        state.step = 0;
+        (SignedMsgType::Proposal, state)
+    }
+
+    fn height(&self) -> tendermint::block::Height {
+        self.proposal.height
+    }
+
+    fn set_signature(&mut self, signature: ed25519_dalek::Signature) {
+        self.proposal.signature = tendermint::Signature::Ed25519(signature);
+    }
+
+    fn to_sign_bytes(&self) -> Vec<u8> {
+        self.to_signable_vec().expect("todo")
+    }
+
+    fn build_response(self, error: Option<RemoteSignerError>) -> Response {
         let response = if let Some(e) = error {
             SignedProposalResponse {
                 proposal: None,
-                err: Some(e),
+                error: Some(e),
             }
         } else {
             SignedProposalResponse {
-                proposal: self.proposal,
-                err: None,
+                proposal: Some(self.proposal),
+                error: None,
             }
         };
 
