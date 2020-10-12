@@ -116,10 +116,10 @@ impl Session {
             Request::ShowPublicKey(ref req) => self.get_public_key(req)?,
         };
 
-        // debug!(
-        //     "[{}@{}] sending response: {:?}",
-        //     &self.config.chain_id, &self.config.addr, &response
-        // );
+        debug!(
+            "[{}@{}] sending response: {:?}",
+            &self.config.chain_id, &self.config.addr, &response
+        );
 
         let buf = response.encode_msg_wrapped()?;
 

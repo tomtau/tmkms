@@ -76,6 +76,6 @@ signatory = { git = "https://github.com/crypto-com/signatory.git", rev = "25f881
 signatory-secp256k1 = { git = "https://github.com/crypto-com/signatory.git", rev = "25f881abeb5620fe78dc8d091a3950721569fa0c" }
 signatory-ledger-tm = { git = "https://github.com/crypto-com/signatory.git", rev = "25f881abeb5620fe78dc8d091a3950721569fa0c" }
 yubihsm = { git = "https://github.com/iqlusioninc/yubihsm.rs.git", rev = "01c60e37a2c420e351566842be29c0cc6ae91b51" }
-tendermint = { git = "https://github.com/informalsystems/tendermint-rs.git", rev = "1d84575ac60797f689733e57a7ff42ef5d2d040c" }
-tendermint-rpc = { git = "https://github.com/informalsystems/tendermint-rs.git", rev = "1d84575ac60797f689733e57a7ff42ef5d2d040c" }
-tendermint-proto = { git = "https://github.com/informalsystems/tendermint-rs.git", rev = "1d84575ac60797f689733e57a7ff42ef5d2d040c" }
+tendermint = { git = "https://github.com/informalsystems/tendermint-rs.git", rev = "b2d15553c320aa6fa638d9a4cd7d8ac3b1eb1245" }
+tendermint-rpc = { git = "https://github.com/informalsystems/tendermint-rs.git", rev = "b2d15553c320aa6fa638d9a4cd7d8ac3b1eb1245" }
+tendermint-proto = { git = "https://github.com/informalsystems/tendermint-rs.git", rev = "b2d15553c320aa6fa638d9a4cd7d8ac3b1eb1245" }

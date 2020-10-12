@@ -34,7 +34,15 @@ impl Format {
                 TendermintKey::AccountKey(pk) => {
                     bech32::encode(account_key_prefix, tendermint::account::Id::from(pk))
                 }
-                TendermintKey::ConsensusKey(pk) => pk.to_bech32(consensus_key_prefix),
+                TendermintKey::ConsensusKey(pk) => {
+                    // FIXME: hack as Cosmos SDK (as of a87d6ea3ab6b198a8bffbcb3e0765575523afe7d)
+                    // still expects Amino prefix.
+                    // also: https://github.com/cosmos/cosmos-sdk/issues/7447
+                    let mut data = vec![0x16, 0x24, 0xDE, 0x64, 0x20];
+                    data.extend_from_slice(pk.as_bytes());
+                    bech32::encode(consensus_key_prefix, data)
+                    //pk.to_bech32(consensus_key_prefix)
+                }
             },
             Format::Hex => public_key.to_hex(),
         }
