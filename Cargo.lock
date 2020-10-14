@@ -2273,7 +2273,7 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.16.0"
-source = "git+https://github.com/informalsystems/tendermint-rs.git?rev=b2d15553c320aa6fa638d9a4cd7d8ac3b1eb1245#b2d15553c320aa6fa638d9a4cd7d8ac3b1eb1245"
+source = "git+https://github.com/informalsystems/tendermint-rs.git?rev=84bbbc323aaf86c78cc667cb71a50a22f9141490#84bbbc323aaf86c78cc667cb71a50a22f9141490"
 dependencies = [
  "anomaly",
  "async-trait",
@@ -2304,7 +2304,7 @@ dependencies = [
 [[package]]
 name = "tendermint-proto"
 version = "0.1.0"
-source = "git+https://github.com/informalsystems/tendermint-rs.git?rev=b2d15553c320aa6fa638d9a4cd7d8ac3b1eb1245#b2d15553c320aa6fa638d9a4cd7d8ac3b1eb1245"
+source = "git+https://github.com/informalsystems/tendermint-rs.git?rev=84bbbc323aaf86c78cc667cb71a50a22f9141490#84bbbc323aaf86c78cc667cb71a50a22f9141490"
 dependencies = [
  "anomaly",
  "bytes 0.5.6",
@@ -2316,7 +2316,7 @@ dependencies = [
 [[package]]
 name = "tendermint-rpc"
 version = "0.16.0"
-source = "git+https://github.com/informalsystems/tendermint-rs.git?rev=b2d15553c320aa6fa638d9a4cd7d8ac3b1eb1245#b2d15553c320aa6fa638d9a4cd7d8ac3b1eb1245"
+source = "git+https://github.com/informalsystems/tendermint-rs.git?rev=84bbbc323aaf86c78cc667cb71a50a22f9141490#84bbbc323aaf86c78cc667cb71a50a22f9141490"
 dependencies = [
  "async-trait",
  "bytes 0.5.6",
