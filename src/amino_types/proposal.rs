@@ -140,11 +140,9 @@ impl SignableMsg for SignProposalRequest {
 
             cp.encode_length_delimited(sign_bytes)?;
         } else {
-            let cp = ProtoCanonicalProposal {
-                chain_id: chain_id.to_string(),
-                r#type: SignedMsgType::Proposal.to_u32() as i32,
-                height: proposal.height,
-                block_id: proposal.block_id.as_ref().map(|x| ProtoCanonicalBlockId {
+            let block_id = match proposal.block_id.as_ref() {
+                Some(x) if x.hash.is_empty() => None,
+                Some(x) => Some(ProtoCanonicalBlockId {
                     hash: x.hash.clone(),
                     part_set_header: x
                         .parts_header
@@ -154,6 +152,13 @@ impl SignableMsg for SignProposalRequest {
                             hash: y.hash.clone(),
                         }),
                 }),
+                None => None,
+            };
+            let cp = ProtoCanonicalProposal {
+                chain_id: chain_id.to_string(),
+                r#type: SignedMsgType::Proposal.to_u32() as i32,
+                height: proposal.height,
+                block_id,
                 pol_round: proposal.pol_round,
                 round: proposal.round,
                 timestamp: proposal.timestamp.map(Into::into),

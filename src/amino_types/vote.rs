@@ -200,11 +200,9 @@ impl SignableMsg for SignVoteRequest {
 
             cv.encode_length_delimited(sign_bytes)?;
         } else {
-            let cv = ProtoCanonicalVote {
-                r#type: vote.vote_type as i32,
-                height: vote.height,
-                round: vote.round as i64,
-                block_id: vote.block_id.as_ref().map(|x| ProtoCanonicalBlockId {
+            let block_id = match vote.block_id.as_ref() {
+                Some(x) if x.hash.is_empty() => None,
+                Some(x) => Some(ProtoCanonicalBlockId {
                     hash: x.hash.clone(),
                     part_set_header: x
                         .parts_header
@@ -214,6 +212,14 @@ impl SignableMsg for SignVoteRequest {
                             hash: y.hash.clone(),
                         }),
                 }),
+                None => None,
+            };
+
+            let cv = ProtoCanonicalVote {
+                r#type: vote.vote_type as i32,
+                height: vote.height,
+                round: vote.round as i64,
+                block_id,
                 timestamp: vote.timestamp.map(Into::into),
                 chain_id: chain_id.to_string(),
             };
