@@ -11,12 +11,18 @@ use crate::rpc;
 use bytes::BufMut;
 use ed25519_dalek as ed25519;
 use once_cell::sync::Lazy;
+use prost::Message as ProstMessage;
 use prost_amino::{EncodeError, Message};
 use prost_amino_derive::Message;
 use std::convert::TryFrom;
 use tendermint::{
     block::{self, ParseId},
     chain, consensus, error,
+};
+use tendermint_proto::types::{
+    CanonicalBlockId as ProtoCanonicalBlockId,
+    CanonicalPartSetHeader as ProtoCanonicalPartSetHeader,
+    CanonicalProposal as ProtoCanonicalProposal,
 };
 
 #[derive(Clone, PartialEq, Message)]
@@ -95,7 +101,12 @@ pub struct SignedProposalResponse {
 }
 
 impl SignableMsg for SignProposalRequest {
-    fn sign_bytes<B>(&self, chain_id: chain::Id, sign_bytes: &mut B) -> Result<bool, EncodeError>
+    fn sign_bytes<B>(
+        &self,
+        chain_id: chain::Id,
+        sign_bytes: &mut B,
+        is_protobuf: bool,
+    ) -> Result<bool, EncodeError>
     where
         B: BufMut,
     {
@@ -104,29 +115,52 @@ impl SignableMsg for SignProposalRequest {
             pr.signature = vec![];
         }
         let proposal = spr.proposal.unwrap();
-        let cp = CanonicalProposal {
-            chain_id: chain_id.to_string(),
-            msg_type: SignedMsgType::Proposal.to_u32(),
-            height: proposal.height,
-            block_id: match proposal.block_id {
-                Some(bid) => Some(CanonicalBlockId {
-                    hash: bid.hash,
-                    parts_header: match bid.parts_header {
-                        Some(psh) => Some(CanonicalPartSetHeader {
-                            hash: psh.hash,
-                            total: psh.total,
-                        }),
-                        None => None,
-                    },
-                }),
-                None => None,
-            },
-            pol_round: proposal.pol_round,
-            round: proposal.round,
-            timestamp: proposal.timestamp,
-        };
+        if !is_protobuf {
+            let cp = CanonicalProposal {
+                chain_id: chain_id.to_string(),
+                msg_type: SignedMsgType::Proposal.to_u32(),
+                height: proposal.height,
+                block_id: match proposal.block_id {
+                    Some(bid) => Some(CanonicalBlockId {
+                        hash: bid.hash,
+                        parts_header: match bid.parts_header {
+                            Some(psh) => Some(CanonicalPartSetHeader {
+                                hash: psh.hash,
+                                total: psh.total,
+                            }),
+                            None => None,
+                        },
+                    }),
+                    None => None,
+                },
+                pol_round: proposal.pol_round,
+                round: proposal.round,
+                timestamp: proposal.timestamp,
+            };
 
-        cp.encode_length_delimited(sign_bytes)?;
+            cp.encode_length_delimited(sign_bytes)?;
+        } else {
+            let cp = ProtoCanonicalProposal {
+                chain_id: chain_id.to_string(),
+                r#type: SignedMsgType::Proposal.to_u32() as i32,
+                height: proposal.height,
+                block_id: proposal.block_id.as_ref().map(|x| ProtoCanonicalBlockId {
+                    hash: x.hash.clone(),
+                    part_set_header: x
+                        .parts_header
+                        .as_ref()
+                        .map(|y| ProtoCanonicalPartSetHeader {
+                            total: y.total as u32,
+                            hash: y.hash.clone(),
+                        }),
+                }),
+                pol_round: proposal.pol_round,
+                round: proposal.round,
+                timestamp: proposal.timestamp.map(Into::into),
+            };
+
+            cp.encode_length_delimited(sign_bytes);
+        }
         Ok(true)
     }
     fn set_signature(&mut self, sig: &ed25519::Signature) {

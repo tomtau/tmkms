@@ -11,6 +11,7 @@ pub trait SignableMsg {
         &self,
         chain_id: chain::Id,
         sign_bytes: &mut B,
+        is_protobuf: bool,
     ) -> Result<bool, EncodeError>;
 
     /// Set the Ed25519 signature on the underlying message

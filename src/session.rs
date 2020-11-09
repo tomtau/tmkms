@@ -146,7 +146,11 @@ impl Session {
         }
 
         let mut to_sign = vec![];
-        request.sign_bytes(self.config.chain_id, &mut to_sign)?;
+        request.sign_bytes(
+            self.config.chain_id,
+            &mut to_sign,
+            self.config.protocol_version.is_protobuf(),
+        )?;
 
         let started_at = Instant::now();
 

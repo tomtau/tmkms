@@ -11,6 +11,7 @@ use crate::rpc;
 use bytes::BufMut;
 use ed25519_dalek as ed25519;
 use once_cell::sync::Lazy;
+use prost::Message as ProstMessage;
 use prost_amino::{error::EncodeError, Message};
 use prost_amino_derive::Message;
 use std::convert::TryFrom;
@@ -19,6 +20,10 @@ use tendermint::{
     chain, consensus,
     error::Error,
     vote,
+};
+use tendermint_proto::types::{
+    CanonicalBlockId as ProtoCanonicalBlockId,
+    CanonicalPartSetHeader as ProtoCanonicalPartSetHeader, CanonicalVote as ProtoCanonicalVote,
 };
 
 const VALIDATOR_ADDR_SIZE: usize = 20;
@@ -176,7 +181,12 @@ impl CanonicalVote {
 }
 
 impl SignableMsg for SignVoteRequest {
-    fn sign_bytes<B>(&self, chain_id: chain::Id, sign_bytes: &mut B) -> Result<bool, EncodeError>
+    fn sign_bytes<B>(
+        &self,
+        chain_id: chain::Id,
+        sign_bytes: &mut B,
+        is_protobuf: bool,
+    ) -> Result<bool, EncodeError>
     where
         B: BufMut,
     {
@@ -185,9 +195,30 @@ impl SignableMsg for SignVoteRequest {
             vo.signature = vec![];
         }
         let vote = svr.vote.unwrap();
-        let cv = CanonicalVote::new(vote, chain_id.as_str());
+        if !is_protobuf {
+            let cv = CanonicalVote::new(vote, chain_id.as_str());
 
-        cv.encode_length_delimited(sign_bytes)?;
+            cv.encode_length_delimited(sign_bytes)?;
+        } else {
+            let cv = ProtoCanonicalVote {
+                r#type: vote.vote_type as i32,
+                height: vote.height,
+                round: vote.round as i64,
+                block_id: vote.block_id.as_ref().map(|x| ProtoCanonicalBlockId {
+                    hash: x.hash.clone(),
+                    part_set_header: x
+                        .parts_header
+                        .as_ref()
+                        .map(|y| ProtoCanonicalPartSetHeader {
+                            total: y.total as u32,
+                            hash: y.hash.clone(),
+                        }),
+                }),
+                timestamp: vote.timestamp.map(Into::into),
+                chain_id: chain_id.to_string(),
+            };
+            cv.encode_length_delimited(sign_bytes);
+        }
 
         Ok(true)
     }
